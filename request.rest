@@ -1,0 +1,17 @@
+GET http://localhost:8000/users
+###
+POST http://localhost:8000/users
+Content-Type: application/json
+
+{
+    "name": "Felix",
+    "password": "password"
+}
+###
+POST http://localhost:8000/login
+Content-Type: application/json
+
+{
+    "name": "Felix",
+    "password": "passwo"
+}
