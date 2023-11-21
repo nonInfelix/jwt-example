@@ -18,6 +18,9 @@ const posts = [
   { username: "Alex", title: "I read books" },
 ];
 
+// normalerweise in redis cache/db... --NUR DEMO-ZWECKE--
+let refreshTokens = [];
+
 //get users
 app.get("/users", (req, res) => {
   res.json(users);
@@ -45,6 +48,13 @@ app.post("/users", async (req, res) => {
   }
 });
 
+function generateAccessToken(user) {
+  // token secret wurde im terminal mit folgendem erstellt: node
+  //require("crypto").randomBytes(64).toString("hex")
+  return jwt.sign({ name: user.name }, process.env.ACCESS_TOKEN_SECRET, {
+    expiresIn: "15s",
+  });
+}
 // login user
 app.post("/login", async (req, res) => {
   const user = users.find((user) => user.name == req.body.name);
@@ -54,14 +64,19 @@ app.post("/login", async (req, res) => {
   try {
     if (await bcrypt.compare(req.body.password, user.password)) {
       //jwt Prozess ------------------------
-      // token wurde im terminal mit folgendem erstellt: node
-      //require("crypto").randomBytes(64).toString("hex")
-      const accessToken = jwt.sign(
+      const accessToken = generateAccessToken(user);
+      const refreshToken = jwt.sign(
         { name: user.name },
-        process.env.ACCESS_TOKEN_SECRET,
-        { expiresIn: "1h" }
+        process.env.REFRESH_TOKEN
       );
-      res.json({ message: "erfolgreich", accessToken: accessToken });
+      // --NUR DEMO ZWECKE--
+      refreshTokens.push(refreshToken);
+      //--------------------------------
+      res.json({
+        message: "erfolgreich",
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+      });
     } else {
       res.status(400).send("Falsches Passwort");
     }
@@ -96,6 +111,22 @@ app.get("/posts", authenticateToken, (req, res) => {
   // eingeloggter user erhält nur seine eigenen posts
   console.log(req.user);
   res.json(posts.filter((post) => post.username === req.user.name));
+});
+
+app.post("/token", (req, res) => {
+  const refreshToken = req.body.token;
+  if (refreshToken == null) return res.status(401).send();
+  if (!refreshTokens.includes(refreshToken)) return res.status(403).send();
+  jwt.verify(refreshToken, process.env.REFRESH_TOKEN, (err, user) => {
+    if (err) return res.status(403).send();
+    const accessToken = generateAccessToken({ name: user.name });
+    res.json({ accessToken: accessToken });
+  });
+});
+
+app.delete("/logout", (req, res) => {
+  refreshTokens = refreshTokens.filter((token) => token !== req.body.token);
+  res.sendStatus(204);
 });
 
 app.listen(port, () => {
