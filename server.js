@@ -3,6 +3,7 @@ const express = require("express");
 const app = express();
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+require("dotenv").config();
 
 const port = 8000;
 
@@ -12,22 +13,24 @@ app.use(express.json());
 const users = [];
 
 const posts = [
-  { author: "Felix", title: "I write code" },
-  { author: "Max", title: "I drink soda" },
-  { author: "Alex", title: "I read books" },
+  { username: "Felix", title: "I write code" },
+  { username: "Max", title: "I drink soda" },
+  { username: "Alex", title: "I read books" },
 ];
 
+//get users
 app.get("/users", (req, res) => {
   res.json(users);
 });
 
+//create users
 // bcrypt ist async lib
 app.post("/users", async (req, res) => {
   try {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(req.body.password, salt);
-    console.log("Salt: ", salt);
-    console.log("password: ", hashedPassword);
+    // es würde auch gehen:
+    //const hashedPassword = await bcrypt.hash(req.body.password, 10); -> 10 = bcrypt.genSalt(10)
     /** Beispiel 
      * salt und hashedPassword wird jedes mal neu
     Salt:      $2b$10$xpkLwnIvWibM.oED5jaQme
@@ -42,23 +45,57 @@ app.post("/users", async (req, res) => {
   }
 });
 
-app.get("/posts", (req, res) => {
-  res.json(posts);
-});
+// login user
 app.post("/login", async (req, res) => {
-  const user = users.find((user) => (user.name = req.body.name));
+  const user = users.find((user) => user.name == req.body.name);
   if (user == null) {
     return res.status(400).send();
   }
   try {
     if (await bcrypt.compare(req.body.password, user.password)) {
-      res.send("erfolgreich eingeloggt");
+      //jwt Prozess ------------------------
+      // token wurde im terminal mit folgendem erstellt: node
+      //require("crypto").randomBytes(64).toString("hex")
+      const accessToken = jwt.sign(
+        { name: user.name },
+        process.env.ACCESS_TOKEN_SECRET,
+        { expiresIn: "1h" }
+      );
+      res.json({ message: "erfolgreich", accessToken: accessToken });
     } else {
       res.status(400).send("Falsches Passwort");
     }
   } catch {
     res.status(500).send("Da ist etwas schiefgelaufen");
   }
+});
+
+//verifiziert user
+function authenticateToken(req, res, next) {
+  // auth Header erhalten
+  const authHeader = req.headers["authorization"];
+  // token ohne Bearer
+  const token = authHeader && authHeader.split(" ")[1];
+  if (token == null) return res.status(401).send();
+
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+    // user: Enthält die Daten, die im Payload des Tokens gespeichert sind,
+    //wenn das Token erfolgreich verifiziert wurde.
+    if (err) return res.status(403).send();
+    //Wenn das Token erfolgreich verifiziert wird (kein Fehler),
+    // werden die Daten aus dem Payload des Tokens (user) req.user zugewiesen.
+    //Diese Aktion fügt die Benutzerinformationen zur Anfrage hinzu,
+    //sodass nachfolgende Middleware oder Routen diese Informationen verwenden können.
+    req.user = user;
+    next();
+  });
+}
+
+// posts vom angemeldeten user
+app.get("/posts", authenticateToken, (req, res) => {
+  // eingeloggter user erhält nur seine eigenen posts
+  console.log(req.user);
+  res.json(posts.filter((post) => post.username === req.user.name));
 });
 
 app.listen(port, () => {

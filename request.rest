@@ -1,5 +1,3 @@
-GET http://localhost:8000/users
-###
 POST http://localhost:8000/users
 Content-Type: application/json
 
@@ -8,10 +6,15 @@ Content-Type: application/json
     "password": "password"
 }
 ###
+GET http://localhost:8000/users
+###
 POST http://localhost:8000/login
 Content-Type: application/json
 
 {
     "name": "Felix",
-    "password": "passwo"
+    "password": "password"
 }
+###
+GET http://localhost:8000/posts
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiRmVsaXgiLCJpYXQiOjE3MDA1OTAwMDh9.pJvvBCiAAqfAJNwjb6tm3ZoXlJ3zuM9-7XT_xdbyWmI
