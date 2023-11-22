@@ -14,7 +14,7 @@ const users = [];
 
 const posts = [
   { username: "Felix", title: "I write code" },
-  { username: "Max", title: "I drink soda" },
+  { username: "Maxi", title: "I drink soda" },
   { username: "Alex", title: "I read books" },
 ];
 
